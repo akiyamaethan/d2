@@ -3,3 +3,11 @@
   vertical-align: top;
   border: 1px solid salmon;
 }
+
+#myCanvas {
+  width: 256px;
+  height: 256px;
+  border-radius: 20px;
+  border: 2px solid;
+  filter: drop-shadow(10px 10px 10px #4444dd);
+}

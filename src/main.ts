@@ -1,6 +1,13 @@
-import exampleIconUrl from "./noun-paperclip-7598668-00449F.png";
 import "./style.css";
 
 document.body.innerHTML = `
-  <p>Example image asset: <img src="${exampleIconUrl}" class="icon" /></p>
+  <center>
+    <h1>Ethan's Artistic Space</h1>
+    <canvas 
+      id="myCanvas"
+      width="20"
+      height="20" 
+    ></canvas>
+
+  </center>
 `;
