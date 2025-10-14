@@ -19,98 +19,138 @@ document.body.innerHTML = `
   </center>
 `;
 
-type Point = { x: number; y: number };
-
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
 const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
 const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
 const canvas = document.getElementById("myCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d");
 
-const lines: Point[][] = [];
-const redoLines: Point[][] = [];
-let currentLine: Point[] | null = null;
-const cursor = { active: false, x: 0, y: 0 };
+const commands: LineCommand[] = [];
+const redoCommands: LineCommand[] = [];
+let cursorCommand: CursorCommand | null = null;
+let currentLineCommand: LineCommand | null = null;
+const bus = new EventTarget();
 
-const DRAWING_CHANGED = "drawing-changed";
-
-function notifyCanvasChanged(detail: Record<string, unknown> = {}) {
-  const drawing_changed = new CustomEvent(DRAWING_CHANGED, {
-    detail,
-    bubbles: true,
-  });
-  canvas.dispatchEvent(drawing_changed);
+function notify(event: string) {
+  bus.dispatchEvent(new Event(event));
 }
 
-canvas.addEventListener("mousedown", (mousePosition) => {
-  redoLines.length = 0;
+class LineCommand {
+  points: { x: number; y: number }[];
 
-  cursor.active = true;
-  cursor.x = mousePosition.offsetX;
-  cursor.y = mousePosition.offsetY;
+  constructor(x: number, y: number) {
+    this.points = [{ x, y }];
+  }
+  execute() {
+    ctx!.beginPath();
+    const { x, y } = this.points[0]!;
+    ctx!.moveTo(x, y);
+    for (const { x, y } of this.points) {
+      ctx!.lineTo(x, y);
+    }
+    ctx!.stroke();
+  }
+  grow(x: number, y: number) {
+    this.points.push({ x, y });
+  }
+}
 
-  currentLine = [];
-  lines.push(currentLine);
-  currentLine!.push({ x: cursor.x, y: cursor.y });
+class CursorCommand {
+  x: number;
+  y: number;
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+  execute() {
+    ctx!.font = "32px monospace";
+    ctx!.fillText("*", this.x - 8, this.y + 16);
+  }
+}
 
+bus.addEventListener("drawing-changed", redraw);
+bus.addEventListener("cursor-changed", redraw);
+
+function tick() {
   redraw();
+  requestAnimationFrame(tick);
+}
+tick();
+
+canvas.addEventListener("mousedown", (mousePosition) => {
+  currentLineCommand = new LineCommand(
+    mousePosition.offsetX,
+    mousePosition.offsetY,
+  );
+  commands.push(currentLineCommand);
+  redoCommands.length = 0;
+  notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (mousePosition) => {
-  if (cursor.active) {
-    cursor.x = mousePosition.offsetX;
-    cursor.y = mousePosition.offsetY;
-    currentLine!.push({ x: cursor.x, y: cursor.y });
+  cursorCommand = new CursorCommand(
+    mousePosition.offsetX,
+    mousePosition.offsetY,
+  );
+  notify("cursor-changed");
 
-    redraw();
+  if (mousePosition.buttons == 1) {
+    currentLineCommand!.points.push({
+      x: mousePosition.offsetX,
+      y: mousePosition.offsetY,
+    });
+    notify("drawing-changed");
   }
 });
 
-canvas.addEventListener("mouseup", () => {
-  cursor.active = false;
-  currentLine = null;
+canvas.addEventListener("mouseout", () => {
+  cursorCommand = null;
+  notify("cursor-changed");
+});
 
-  redraw();
+canvas.addEventListener("mouseenter", (mousePosition) => {
+  cursorCommand = new CursorCommand(
+    mousePosition.offsetX,
+    mousePosition.offsetY,
+  );
+  notify("cursor-changed");
+});
+
+canvas.addEventListener("mouseup", () => {
+  currentLineCommand = null;
+  notify("drawing-changed");
 });
 
 clearButton.addEventListener("click", () => {
-  lines.length = 0;
-  redraw();
-  notifyCanvasChanged({ type: "clear", lines: 0 });
+  commands.length = 0;
+  notify("drawing-changed");
 });
 
 undoButton.addEventListener("click", () => {
-  if (lines.length > 0) {
-    const last = lines.pop();
-    redoLines.push(last!);
-    redraw();
-    notifyCanvasChanged({ type: "undo", lines: lines.length });
+  if (commands.length > 0) {
+    const popped = commands.pop();
+    if (popped) {
+      redoCommands.push(popped);
+    }
+    notify("drawing-changed");
   }
 });
 
 redoButton.addEventListener("click", () => {
-  if (redoLines.length > 0) {
-    const line = redoLines.pop();
-    lines.push(line!);
-    redraw();
-    notifyCanvasChanged({ type: "redo", lines: lines.length });
+  if (redoCommands.length > 0) {
+    const popped = redoCommands.pop();
+    if (popped) {
+      commands.push(popped);
+    }
+    notify("drawing-changed");
   }
 });
 
 function redraw() {
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const line of lines) {
-    if (line.length > 1) {
-      ctx.beginPath();
-      const first = line[0]!;
-      const { x, y } = first;
-      ctx.moveTo(x, y);
-      for (const { x, y } of line) {
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-    }
+  commands.forEach((cmd) => cmd.execute());
+  if (cursorCommand) {
+    cursorCommand.execute();
   }
-  notifyCanvasChanged({ type: "redraw", lines: lines.length });
 }
