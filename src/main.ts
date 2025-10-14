@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 import "./style.css";
 
 document.body.innerHTML = `
@@ -55,6 +56,28 @@ class LineCommand {
   }
 }
 
+/*
+class MarkerCommand {
+  points: { x: number; y: number }[];
+  markerSize: number;
+  constructor(x: number, y: number, markerSize: number = 5) {
+    this.points = [{ x, y }];
+    this.markerSize = markerSize;
+  }
+  execute() {
+    ctx!.beginPath();
+    const { x, y } = this.points[0]!;
+    ctx!.moveTo(x, y);
+    for (const { x, y } of this.points) {
+      ctx!.lineTo(x, y);
+    }
+    ctx!.stroke();
+  }
+  grow(x: number, y: number) {
+    this.points.push({ x, y });
+  }
+}
+*/
 class CursorCommand {
   x: number;
   y: number;
