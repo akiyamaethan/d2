@@ -19,14 +19,17 @@ document.body.innerHTML = `
   </center>
 `;
 
+type Point = { x: number; y: number };
+
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
 const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
-//const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
+const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
 const canvas = document.getElementById("myCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d");
 
-const lines: Array<Array<{ x: number; y: number }>> = [];
-let currentLine: Array<{ x: number; y: number }> | null = null;
+const lines: Point[][] = [];
+const redoLines: Point[][] = [];
+let currentLine: Point[] | null = null;
 const cursor = { active: false, x: 0, y: 0 };
 
 const DRAWING_CHANGED = "drawing-changed";
@@ -40,6 +43,8 @@ function notifyCanvasChanged(detail: Record<string, unknown> = {}) {
 }
 
 canvas.addEventListener("mousedown", (mousePosition) => {
+  redoLines.length = 0;
+
   cursor.active = true;
   cursor.x = mousePosition.offsetX;
   cursor.y = mousePosition.offsetY;
@@ -76,9 +81,19 @@ clearButton.addEventListener("click", () => {
 
 undoButton.addEventListener("click", () => {
   if (lines.length > 0) {
-    lines.pop();
+    const last = lines.pop();
+    redoLines.push(last!);
     redraw();
     notifyCanvasChanged({ type: "undo", lines: lines.length });
+  }
+});
+
+redoButton.addEventListener("click", () => {
+  if (redoLines.length > 0) {
+    const line = redoLines.pop();
+    lines.push(line!);
+    redraw();
+    notifyCanvasChanged({ type: "redo", lines: lines.length });
   }
 });
 
