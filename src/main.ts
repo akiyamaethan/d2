@@ -10,10 +10,18 @@ document.body.innerHTML = `
     <button
       id="clearBtn"
     >Clear</button>
+    <button
+      id="undoBtn"
+    >Undo</button>
+    <button
+      id="redoBtn"
+    >Redo</button>
   </center>
 `;
 
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
+const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
+//const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
 const canvas = document.getElementById("myCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d");
 
@@ -63,8 +71,15 @@ canvas.addEventListener("mouseup", () => {
 clearButton.addEventListener("click", () => {
   lines.length = 0;
   redraw();
-  // Notify observers that the canvas was cleared
   notifyCanvasChanged({ type: "clear", lines: 0 });
+});
+
+undoButton.addEventListener("click", () => {
+  if (lines.length > 0) {
+    lines.pop();
+    redraw();
+    notifyCanvasChanged({ type: "undo", lines: lines.length });
+  }
 });
 
 function redraw() {
