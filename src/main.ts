@@ -36,6 +36,11 @@ document.body.innerHTML = `
   </center>
 `;
 
+type Tool = {
+  name: string;
+  thickness: number;
+};
+
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
 const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
 const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
@@ -49,6 +54,7 @@ const markerButtonThick = document.getElementById(
 const canvas = document.getElementById("myCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d");
 
+let currentTool: Tool = { name: "Pencil", thickness: 2 };
 const commands: LineCommand[] = [];
 const redoCommands: LineCommand[] = [];
 let cursorCommand: CursorCommand | null = null;
@@ -59,20 +65,16 @@ function notify(event: string) {
   bus.dispatchEvent(new Event(event));
 }
 
-type Tool = {
-  thickness: number;
-};
-
-const currentTool: Tool = { thickness: 2 };
-
 class LineCommand {
   points: { x: number; y: number }[];
+  thickness: number = 2;
 
-  constructor(x: number, y: number) {
+  constructor(x: number, y: number, thickness: number = 2) {
     this.points = [{ x, y }];
+    this.thickness = thickness;
   }
   execute() {
-    ctx!.lineWidth = currentTool.thickness;
+    ctx!.lineWidth = this.thickness;
     ctx!.beginPath();
     const { x, y } = this.points[0]!;
     ctx!.moveTo(x, y);
@@ -116,13 +118,14 @@ class CursorCommand {
     this.y = y;
   }
   execute() {
-    ctx!.font = "32px monospace";
-    ctx!.fillText("*", this.x, this.y);
+    ctx!.font = "16px monospace";
+    ctx!.fillText(currentTool.name, this.x, this.y);
   }
 }
 
 bus.addEventListener("drawing-changed", redraw);
 bus.addEventListener("cursor-changed", redraw);
+bus.addEventListener("tool-changed", redraw);
 
 function tick() {
   redraw();
@@ -135,6 +138,7 @@ canvas.addEventListener("mousedown", (mousePosition) => {
   const x = mousePosition.clientX - rect.left;
   const y = mousePosition.clientY - rect.top;
   currentLineCommand = new LineCommand(x, y);
+  currentLineCommand.thickness = currentTool.thickness;
   commands.push(currentLineCommand);
   redoCommands.length = 0;
   notify("drawing-changed");
@@ -146,6 +150,7 @@ canvas.addEventListener("mousemove", (mousePosition) => {
   const realY = mousePosition.clientY - rect.top;
   cursorCommand = new CursorCommand(realX, realY);
   notify("cursor-changed");
+  notify("tool-changed");
 
   if (mousePosition.buttons == 1) {
     currentLineCommand!.points.push({ x: realX, y: realY });
@@ -156,6 +161,7 @@ canvas.addEventListener("mousemove", (mousePosition) => {
 canvas.addEventListener("mouseout", () => {
   cursorCommand = null;
   notify("cursor-changed");
+  notify("tool-changed");
 });
 
 canvas.addEventListener("mouseenter", (mousePosition) => {
@@ -164,6 +170,7 @@ canvas.addEventListener("mouseenter", (mousePosition) => {
   const y = mousePosition.clientY - rect.top;
   cursorCommand = new CursorCommand(x, y);
   notify("cursor-changed");
+  notify("tool-changed");
 });
 
 canvas.addEventListener("mouseup", () => {
@@ -197,14 +204,17 @@ redoButton.addEventListener("click", () => {
 });
 
 pencilButton.addEventListener("click", () => {
+  currentTool.name = "Pencil";
   currentTool.thickness = 2;
 });
 
 markerButtonThin.addEventListener("click", () => {
+  currentTool.name = "Marker";
   currentTool.thickness = 5;
 });
 
 markerButtonThick.addEventListener("click", () => {
+  currentTool.name = "Thick Marker";
   currentTool.thickness = 10;
 });
 
