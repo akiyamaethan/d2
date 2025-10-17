@@ -19,12 +19,33 @@ document.body.innerHTML = `
     <button
       id="redoBtn"
     >Redo</button>
+    <br/>
+    <section>
+      <h4> Tools: </h4>
+      <br/>
+      <button
+        id="pencilBtn"
+      >Pencil</button>
+      <button
+        id="markerBtnThin"
+      >Marker</button>
+      <button
+        id="markerBtnThick"
+      >Thick Marker</button>
+    </section>
   </center>
 `;
 
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
 const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
 const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
+const pencilButton = document.getElementById("pencilBtn") as HTMLButtonElement;
+const markerButtonThin = document.getElementById(
+  "markerBtnThin",
+) as HTMLButtonElement;
+const markerButtonThick = document.getElementById(
+  "markerBtnThick",
+) as HTMLButtonElement;
 const canvas = document.getElementById("myCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d");
 
@@ -38,6 +59,12 @@ function notify(event: string) {
   bus.dispatchEvent(new Event(event));
 }
 
+type Tool = {
+  thickness: number;
+};
+
+const currentTool: Tool = { thickness: 2 };
+
 class LineCommand {
   points: { x: number; y: number }[];
 
@@ -45,6 +72,7 @@ class LineCommand {
     this.points = [{ x, y }];
   }
   execute() {
+    ctx!.lineWidth = currentTool.thickness;
     ctx!.beginPath();
     const { x, y } = this.points[0]!;
     ctx!.moveTo(x, y);
@@ -166,6 +194,18 @@ redoButton.addEventListener("click", () => {
     }
     notify("drawing-changed");
   }
+});
+
+pencilButton.addEventListener("click", () => {
+  currentTool.thickness = 2;
+});
+
+markerButtonThin.addEventListener("click", () => {
+  currentTool.thickness = 5;
+});
+
+markerButtonThick.addEventListener("click", () => {
+  currentTool.thickness = 10;
 });
 
 function redraw() {
