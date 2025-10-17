@@ -6,6 +6,8 @@ document.body.innerHTML = `
     <h1>Ethan's Artistic Space</h1>
     <canvas 
       id="myCanvas"
+      width="256"
+      height="256"
     ></canvas>
     <br/>
     <button
@@ -87,7 +89,7 @@ class CursorCommand {
   }
   execute() {
     ctx!.font = "32px monospace";
-    ctx!.fillText("*", this.x - 8, this.y + 16);
+    ctx!.fillText("*", this.x, this.y);
   }
 }
 
@@ -101,27 +103,24 @@ function tick() {
 tick();
 
 canvas.addEventListener("mousedown", (mousePosition) => {
-  currentLineCommand = new LineCommand(
-    mousePosition.offsetX,
-    mousePosition.offsetY,
-  );
+  const rect = canvas.getBoundingClientRect();
+  const x = mousePosition.clientX - rect.left;
+  const y = mousePosition.clientY - rect.top;
+  currentLineCommand = new LineCommand(x, y);
   commands.push(currentLineCommand);
   redoCommands.length = 0;
   notify("drawing-changed");
 });
 
 canvas.addEventListener("mousemove", (mousePosition) => {
-  cursorCommand = new CursorCommand(
-    mousePosition.offsetX,
-    mousePosition.offsetY,
-  );
+  const rect = canvas.getBoundingClientRect();
+  const realX = mousePosition.clientX - rect.left;
+  const realY = mousePosition.clientY - rect.top;
+  cursorCommand = new CursorCommand(realX, realY);
   notify("cursor-changed");
 
   if (mousePosition.buttons == 1) {
-    currentLineCommand!.points.push({
-      x: mousePosition.offsetX,
-      y: mousePosition.offsetY,
-    });
+    currentLineCommand!.points.push({ x: realX, y: realY });
     notify("drawing-changed");
   }
 });
@@ -132,10 +131,10 @@ canvas.addEventListener("mouseout", () => {
 });
 
 canvas.addEventListener("mouseenter", (mousePosition) => {
-  cursorCommand = new CursorCommand(
-    mousePosition.offsetX,
-    mousePosition.offsetY,
-  );
+  const rect = canvas.getBoundingClientRect();
+  const x = mousePosition.clientX - rect.left;
+  const y = mousePosition.clientY - rect.top;
+  cursorCommand = new CursorCommand(x, y);
   notify("cursor-changed");
 });
 
