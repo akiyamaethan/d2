@@ -16,11 +16,12 @@ document.body.innerHTML = `
       <button id="markerBtnThin">Marker</button>
       <button id="markerBtnThick">Thick Marker</button>
     </section>
-    <section>
+    <section id="stickerBtns">
       <h4> Stickers: </h4>
       <button class="stickerBtn">😀</button>
       <button class="stickerBtn">🌸</button>
       <button class="stickerBtn">🔥</button>
+      <button class="stickerBtn">Custom</button>
     </section>
   </center>
 `;
@@ -30,6 +31,7 @@ type Tool = {
   thickness: number;
 };
 
+const stickerSection = document.getElementById("stickerBtns") as HTMLElement;
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
 const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
 const redoButton = document.getElementById("redoBtn") as HTMLButtonElement;
@@ -151,16 +153,6 @@ canvas.addEventListener("mousedown", (e) => {
   const y = e.clientY - rect.top;
 
   if (currentTool.name === "Sticker" && currentSticker) {
-    // Check if clicking existing sticker (for drag)
-    for (let i = commands.length - 1; i >= 0; i--) {
-      const cmd = commands[i];
-      if (cmd instanceof StickerCommand && cmd.contains(x, y)) {
-        draggedSticker = cmd;
-        return;
-      }
-    }
-
-    // Otherwise, place a new sticker
     const stickerCmd = new StickerCommand(currentSticker, x, y);
     commands.push(stickerCmd);
     redoCommands.length = 0;
@@ -229,13 +221,26 @@ markerButtonThick.addEventListener("click", () => {
 });
 
 document.querySelectorAll(".stickerBtn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    currentSticker = (btn as HTMLButtonElement).textContent;
-    currentTool = { name: "Sticker", thickness: 0 };
-    notify("tool-moved");
-  });
+  currentSticker = (btn as HTMLButtonElement).textContent;
+  setupButton(btn as HTMLButtonElement, currentSticker);
 });
 
+function setupButton(btn: HTMLButtonElement, sticker: string) {
+  btn.addEventListener("click", () => {
+    currentTool = { name: "Sticker", thickness: 0 };
+    if (sticker == "Custom") {
+      currentSticker = prompt("Custom sticker text", "🧽");
+      let button = document.createElement("button");
+      button.className = "stickerBtn";
+      button.textContent = currentSticker!;
+      stickerSection.append(button);
+      setupButton(button, currentSticker!);
+    } else {
+      currentSticker = sticker;
+    }
+    notify("tool-moved");
+  });
+}
 // ---------------------- CLEAR / UNDO / REDO ----------------------
 
 clearButton.addEventListener("click", () => {
