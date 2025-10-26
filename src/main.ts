@@ -19,8 +19,8 @@ document.body.innerHTML = `
     </section>
     <section id="stickerBtns">
       <h4> Stickers: </h4>
-      <button class="stickerBtn">😀</button>
-      <button class="stickerBtn">🌸</button>
+      <button class="stickerBtn">💋</button>
+      <button class="stickerBtn">🤡</button>
       <button class="stickerBtn">🔥</button>
       <button class="stickerBtn">Custom</button>
     </section>
@@ -214,13 +214,13 @@ pencilButton.addEventListener("click", () => {
 });
 
 markerButtonThin.addEventListener("click", () => {
-  currentTool = { name: "Marker", thickness: 5 };
+  currentTool = { name: "Marker", thickness: 7 };
   currentSticker = null;
   notify("tool-moved");
 });
 
 markerButtonThick.addEventListener("click", () => {
-  currentTool = { name: "Thick Marker", thickness: 10 };
+  currentTool = { name: "Thick Marker", thickness: 15 };
   currentSticker = null;
   notify("tool-moved");
 });
