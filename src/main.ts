@@ -9,6 +9,7 @@ document.body.innerHTML = `
     <button id="clearBtn">Clear</button>
     <button id="undoBtn">Undo</button>
     <button id="redoBtn">Redo</button>
+    <button id="exportBtn">Export PNG</button>
     <br/>
     <section>
       <h4> Tools: </h4>
@@ -31,6 +32,7 @@ type Tool = {
   thickness: number;
 };
 
+const exportButton = document.getElementById("exportBtn") as HTMLButtonElement;
 const stickerSection = document.getElementById("stickerBtns") as HTMLElement;
 const clearButton = document.getElementById("clearBtn") as HTMLButtonElement;
 const undoButton = document.getElementById("undoBtn") as HTMLButtonElement;
@@ -69,13 +71,14 @@ class LineCommand {
     this.points.push({ x, y });
     this.thickness = thickness;
   }
-  execute() {
-    ctx.lineWidth = this.thickness;
-    ctx.beginPath();
+  execute(ctxArg?: CanvasRenderingContext2D) {
+    const drawCtx = ctxArg ?? ctx;
+    drawCtx.lineWidth = this.thickness;
+    drawCtx.beginPath();
     const { x, y } = this.points[0]!;
-    ctx.moveTo(x, y);
-    for (const { x, y } of this.points) ctx.lineTo(x, y);
-    ctx.stroke();
+    drawCtx.moveTo(x, y);
+    for (const { x, y } of this.points) drawCtx.lineTo(x, y);
+    drawCtx.stroke();
   }
   grow(x: number, y: number) {
     this.points.push({ x, y });
@@ -95,22 +98,23 @@ class PreviewCommand {
     this.sticker = sticker;
   }
 
-  execute() {
-    ctx.globalAlpha = 0.5;
+  execute(ctxArg?: CanvasRenderingContext2D) {
+    const drawCtx = ctxArg ?? ctx;
+    drawCtx.globalAlpha = 0.5;
 
     if (this.tool.name === "Sticker" && this.sticker) {
       // Emoji sticker preview
-      ctx.font = "32px serif";
-      ctx.fillText(this.sticker, this.x - 16, this.y + 16);
+      drawCtx.font = "32px serif";
+      drawCtx.fillText(this.sticker, this.x - 16, this.y + 16);
     } else {
       // Drawing tool preview as circle
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.tool.thickness / 2, 0, Math.PI * 2);
-      ctx.fillStyle = "black";
-      ctx.fill();
+      drawCtx.beginPath();
+      drawCtx.arc(this.x, this.y, this.tool.thickness / 2, 0, Math.PI * 2);
+      drawCtx.fillStyle = "black";
+      drawCtx.fill();
     }
 
-    ctx.globalAlpha = 1.0;
+    drawCtx.globalAlpha = 1.0;
   }
 }
 
@@ -125,9 +129,10 @@ class StickerCommand {
     this.y = y;
   }
 
-  execute() {
-    ctx.font = "32px serif";
-    ctx.fillText(this.emoji, this.x - 16, this.y + 16);
+  execute(ctxArg?: CanvasRenderingContext2D) {
+    const drawCtx = ctxArg ?? ctx;
+    drawCtx.font = "32px serif";
+    drawCtx.fillText(this.emoji, this.x - 16, this.y + 16);
   }
 
   drag(x: number, y: number) {
@@ -274,4 +279,33 @@ function redraw() {
 requestAnimationFrame(function loop() {
   redraw();
   requestAnimationFrame(loop);
+});
+
+// ---------------------- EXPORT ----------------------
+
+exportButton.addEventListener("click", () => {
+  const EXPORT_SIZE = 1024;
+  const tmp = document.createElement("canvas");
+  tmp.width = EXPORT_SIZE;
+  tmp.height = EXPORT_SIZE;
+  const tmpCtx = tmp.getContext("2d")!;
+  const scaleX = tmp.width / canvas.width;
+  const scaleY = tmp.height / canvas.height;
+
+  tmpCtx.save();
+  tmpCtx.scale(scaleX, scaleY);
+
+  for (const cmd of commands) {
+    (cmd as any).execute(tmpCtx);
+  }
+
+  tmpCtx.restore();
+
+  const dataUrl = tmp.toDataURL("image/png");
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = "drawing.png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 });
