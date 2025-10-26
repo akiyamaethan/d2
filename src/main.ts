@@ -13,6 +13,7 @@ document.body.innerHTML = `
     <br/>
     <section>
       <h4> Tools: </h4>
+      <label>Color: <input id="colorPicker" type="color" value="#000000"/></label>
       <button id="pencilBtn">Pencil</button>
       <button id="markerBtnThin">Marker</button>
       <button id="markerBtnThick">Thick Marker</button>
@@ -23,6 +24,7 @@ document.body.innerHTML = `
       <button class="stickerBtn">🤡</button>
       <button class="stickerBtn">🔥</button>
       <button class="stickerBtn">Custom</button>
+      <div>Sticker size: <span id="stickerSizeDisplay">32</span>px (use scroll wheel)</div>
     </section>
   </center>
 `;
@@ -30,6 +32,7 @@ document.body.innerHTML = `
 type Tool = {
   name: string;
   thickness: number;
+  color?: string;
 };
 
 const exportButton = document.getElementById("exportBtn") as HTMLButtonElement;
@@ -46,11 +49,18 @@ const markerButtonThick = document.getElementById(
 ) as HTMLButtonElement;
 const canvas = document.getElementById("myCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
+const colorInput = document.getElementById("colorPicker") as HTMLInputElement;
+const stickerSizeDisplay = document.getElementById(
+  "stickerSizeDisplay",
+) as HTMLSpanElement;
 
 const bus = new EventTarget();
 
-let currentTool: Tool = { name: "Pencil", thickness: 2 };
+let currentTool: Tool = { name: "Pencil", thickness: 2, color: "#000000" };
 let currentSticker: string | null = null;
+let currentStickerSize = 32;
+stickerSizeDisplay.textContent = String(currentStickerSize);
+colorInput.value = currentTool.color ?? "#000000";
 const commands: (LineCommand | StickerCommand)[] = [];
 const redoCommands: (LineCommand | StickerCommand)[] = [];
 
@@ -67,13 +77,21 @@ function notify(event: string) {
 class LineCommand {
   points: { x: number; y: number }[] = [];
   thickness: number;
-  constructor(x: number, y: number, thickness: number = 2) {
+  color: string;
+  constructor(
+    x: number,
+    y: number,
+    thickness: number = 2,
+    color: string = "#000000",
+  ) {
     this.points.push({ x, y });
     this.thickness = thickness;
+    this.color = color;
   }
   execute(ctxArg?: CanvasRenderingContext2D) {
     const drawCtx = ctxArg ?? ctx;
     drawCtx.lineWidth = this.thickness;
+    drawCtx.strokeStyle = this.color;
     drawCtx.beginPath();
     const { x, y } = this.points[0]!;
     drawCtx.moveTo(x, y);
@@ -90,12 +108,20 @@ class PreviewCommand {
   y: number;
   tool: Tool;
   sticker: string | null;
+  size: number;
 
-  constructor(tool: Tool, x: number, y: number, sticker: string | null) {
+  constructor(
+    tool: Tool,
+    x: number,
+    y: number,
+    sticker: string | null,
+    size: number,
+  ) {
     this.x = x;
     this.y = y;
     this.tool = tool;
     this.sticker = sticker;
+    this.size = size;
   }
 
   execute(ctxArg?: CanvasRenderingContext2D) {
@@ -104,8 +130,12 @@ class PreviewCommand {
 
     if (this.tool.name === "Sticker" && this.sticker) {
       // Emoji sticker preview
-      drawCtx.font = "32px serif";
-      drawCtx.fillText(this.sticker, this.x - 16, this.y + 16);
+      drawCtx.font = `${this.size}px serif`;
+      drawCtx.fillText(
+        this.sticker,
+        this.x - this.size / 2,
+        this.y + this.size / 2,
+      );
     } else {
       // Drawing tool preview as circle
       drawCtx.beginPath();
@@ -122,17 +152,23 @@ class StickerCommand {
   emoji: string;
   x: number;
   y: number;
+  size: number;
 
-  constructor(emoji: string, x: number, y: number) {
+  constructor(emoji: string, x: number, y: number, size: number) {
     this.emoji = emoji;
     this.x = x;
     this.y = y;
+    this.size = size;
   }
 
   execute(ctxArg?: CanvasRenderingContext2D) {
     const drawCtx = ctxArg ?? ctx;
-    drawCtx.font = "32px serif";
-    drawCtx.fillText(this.emoji, this.x - 16, this.y + 16);
+    drawCtx.font = `${this.size}px serif`;
+    drawCtx.fillText(
+      this.emoji,
+      this.x - this.size / 2,
+      this.y + this.size / 2,
+    );
   }
 
   drag(x: number, y: number) {
@@ -158,7 +194,12 @@ canvas.addEventListener("mousedown", (e) => {
   const y = e.clientY - rect.top;
 
   if (currentTool.name === "Sticker" && currentSticker) {
-    const stickerCmd = new StickerCommand(currentSticker, x, y);
+    const stickerCmd = new StickerCommand(
+      currentSticker,
+      x,
+      y,
+      currentStickerSize,
+    );
     commands.push(stickerCmd);
     redoCommands.length = 0;
     notify("drawing-changed");
@@ -166,7 +207,12 @@ canvas.addEventListener("mousedown", (e) => {
   }
 
   // Default: start drawing a line
-  currentLineCommand = new LineCommand(x, y, currentTool.thickness);
+  currentLineCommand = new LineCommand(
+    x,
+    y,
+    currentTool.thickness,
+    currentTool.color ?? "#000000",
+  );
   commands.push(currentLineCommand);
   redoCommands.length = 0;
   notify("drawing-changed");
@@ -184,7 +230,13 @@ canvas.addEventListener("mousemove", (e) => {
   }
 
   // Always show preview for current tool
-  previewCommand = new PreviewCommand(currentTool, x, y, currentSticker);
+  previewCommand = new PreviewCommand(
+    currentTool,
+    x,
+    y,
+    currentSticker,
+    currentStickerSize,
+  );
   notify("tool-moved");
 
   // If drawing with mouse down
@@ -205,22 +257,42 @@ canvas.addEventListener("mouseout", () => {
   notify("tool-moved");
 });
 
+canvas.addEventListener("wheel", (e) => {
+  if (currentTool.name === "Sticker" && !draggedSticker) {
+    e.preventDefault();
+    // scroll up (deltaY < 0) => increase size, scroll down => decrease
+    const delta = e.deltaY < 0 ? 2 : -2;
+    currentStickerSize = Math.max(8, Math.min(256, currentStickerSize + delta));
+    stickerSizeDisplay.textContent = String(currentStickerSize);
+    notify("tool-moved");
+  }
+}, { passive: false });
+
+colorInput.addEventListener("input", () => {
+  currentTool.color = colorInput.value;
+  notify("tool-moved");
+});
+
 // ---------------------- TOOL BUTTONS ----------------------
 
 pencilButton.addEventListener("click", () => {
-  currentTool = { name: "Pencil", thickness: 2 };
+  currentTool = { name: "Pencil", thickness: 2, color: colorInput.value };
   currentSticker = null;
   notify("tool-moved");
 });
 
 markerButtonThin.addEventListener("click", () => {
-  currentTool = { name: "Marker", thickness: 7 };
+  currentTool = { name: "Marker", thickness: 7, color: colorInput.value };
   currentSticker = null;
   notify("tool-moved");
 });
 
 markerButtonThick.addEventListener("click", () => {
-  currentTool = { name: "Thick Marker", thickness: 15 };
+  currentTool = {
+    name: "Thick Marker",
+    thickness: 15,
+    color: colorInput.value,
+  };
   currentSticker = null;
   notify("tool-moved");
 });
@@ -232,7 +304,7 @@ document.querySelectorAll(".stickerBtn").forEach((btn) => {
 
 function setupButton(btn: HTMLButtonElement, sticker: string) {
   btn.addEventListener("click", () => {
-    currentTool = { name: "Sticker", thickness: 0 };
+    currentTool = { name: "Sticker", thickness: 0, color: colorInput.value };
     if (sticker == "Custom") {
       currentSticker = prompt("Custom sticker text", "🧽");
       let button = document.createElement("button");
